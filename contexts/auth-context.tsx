@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { AuthAPI } from "@/lib/api"
+import { authCookies, authStorage } from "@/lib/auth-utils"
 
 type User = {
   id: string
@@ -15,6 +16,7 @@ type AuthContextType = {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>
   logout: () => void
+  checkAuth: () => boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -28,30 +30,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const checkAuth = () => {
       try {
         console.log("Checking for stored user...")
-        const storedUser = localStorage.getItem("pomodoro-user")
+        const storedUser = authStorage.getUser()
 
         if (storedUser) {
-          try {
-            const parsedUser = JSON.parse(storedUser)
-            console.log("Found stored user:", parsedUser.email)
-
-            // Validate user object
-            if (parsedUser && parsedUser.id && parsedUser.name && parsedUser.email) {
-              setUser(parsedUser)
-            } else {
-              console.error("Invalid user data in localStorage:", parsedUser)
-              localStorage.removeItem("pomodoro-user")
-            }
-          } catch (e) {
-            console.error("Error parsing user data:", e)
-            localStorage.removeItem("pomodoro-user")
-          }
+          console.log("Found stored user:", storedUser.email)
+          setUser(storedUser)
         } else {
           console.log("No stored user found")
         }
       } catch (error) {
         console.error("Failed to load user from storage:", error)
-        localStorage.removeItem("pomodoro-user")
+        authStorage.removeUser()
       } finally {
         setLoading(false)
       }
@@ -60,6 +49,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Add a small delay to ensure localStorage is available
     setTimeout(checkAuth, 100)
   }, [])
+
+  const checkAuth = (): boolean => {
+    const storedUser = authStorage.getUser()
+    const hasCookie = authCookies.exists()
+    return !!storedUser && hasCookie
+  }
 
   const login = async (email: string, password: string) => {
     console.log(`Login attempt for: ${email}`)
@@ -91,13 +86,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log("Setting user in state and localStorage:", userData)
         setUser(userData)
 
-        // Make sure localStorage is updated synchronously
-        try {
-          localStorage.setItem("pomodoro-user", JSON.stringify(userData))
-          console.log("User data saved to localStorage")
-        } catch (e) {
-          console.error("Error saving to localStorage:", e)
-        }
+        // Save to localStorage and set cookie
+        authStorage.setUser(userData)
+        authCookies.set(userData)
 
         return { success: true }
       }
@@ -147,10 +138,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     console.log("Logging out user")
     setUser(null)
-    localStorage.removeItem("pomodoro-user")
+    authStorage.removeUser()
+    authCookies.remove()
   }
 
-  return <AuthContext.Provider value={{ user, loading, login, register, logout }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ user, loading, login, register, logout, checkAuth }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {

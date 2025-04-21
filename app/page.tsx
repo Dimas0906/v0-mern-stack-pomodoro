@@ -11,15 +11,16 @@ import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import { DatabaseStatus } from "@/components/db-status"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { authStorage } from "@/lib/auth-utils"
 
 export default function Home() {
-  const { user, loading, logout } = useAuth()
+  const { user, loading, logout, checkAuth } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
   const { theme } = useTheme()
   const isDarkMode = theme === "dark"
   const [loadingTimeout, setLoadingTimeout] = useState(false)
-  const [userChecked, setUserChecked] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   // Add a timeout to detect if loading takes too long
   useEffect(() => {
@@ -32,19 +33,20 @@ export default function Home() {
     }
   }, [loading])
 
-  // Check if user is logged in
+  // Check authentication on mount
   useEffect(() => {
     if (!loading) {
-      setUserChecked(true)
+      const isAuth = checkAuth()
+      setIsAuthenticated(isAuth)
 
-      if (!user) {
-        console.log("No user found, redirecting to login")
+      if (!isAuth) {
+        console.log("Not authenticated, redirecting to login")
         window.location.href = "/login"
       } else {
-        console.log("User found:", user.email)
+        console.log("User is authenticated")
       }
     }
-  }, [user, loading, router])
+  }, [loading, checkAuth])
 
   const handleLogout = () => {
     logout()
@@ -61,7 +63,7 @@ export default function Home() {
   }
 
   // Show loading state
-  if (loading || !userChecked) {
+  if (loading || !isAuthenticated) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-primary dark:bg-dark">
         <div className="text-center">
@@ -87,9 +89,11 @@ export default function Home() {
     )
   }
 
-  // If no user and we've checked, the redirect should have happened
-  if (!user) {
-    return null
+  // Get user data from storage if not in context
+  const userData = user || authStorage.getUser()
+
+  if (!userData) {
+    return null // Should never happen due to earlier check
   }
 
   // User is authenticated, show the app
@@ -106,7 +110,7 @@ export default function Home() {
           <div className="flex items-center gap-4">
             <ThemeToggle />
             <span className={cn("text-sm", isDarkMode ? "text-primary/70" : "text-tertiary/70")}>
-              Welcome, {user.name}
+              Welcome, {userData.name}
             </span>
             <Button
               variant="outline"

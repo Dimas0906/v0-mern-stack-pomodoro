@@ -13,7 +13,7 @@ export async function POST(request: Request) {
 
     if (!email || !password) {
       console.log("Login failed: Email and password are required")
-      return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
+      return NextResponse.json({ error: "Email and password are required", success: false }, { status: 400 })
     }
 
     // Check for demo user
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
     if (!user) {
       console.log(`Login failed: No user found with email ${email}`)
-      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+      return NextResponse.json({ error: "Invalid email or password", success: false }, { status: 401 })
     }
 
     console.log(`User found in database: ${user._id} (${user.name})`)
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
     if (!isPasswordValid) {
       console.log(`Login failed: Invalid password for user ${email}`)
-      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+      return NextResponse.json({ error: "Invalid email or password", success: false }, { status: 401 })
     }
 
     // Return user without password

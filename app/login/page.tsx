@@ -27,17 +27,18 @@ export default function LoginPage() {
   const [activeTab, setActiveTab] = useState("login")
   const router = useRouter()
   const { toast } = useToast()
-  const { user, login, register } = useAuth()
+  const { user, loading, login, register, checkAuth } = useAuth()
   const { theme } = useTheme()
   const isDarkMode = theme === "dark"
 
   // Redirect if already logged in
   useEffect(() => {
-    if (user) {
-      console.log("User already logged in, redirecting to home")
-      router.push("/")
+    // Check if user is already authenticated
+    if (checkAuth()) {
+      console.log("User already authenticated, redirecting to home")
+      window.location.href = "/"
     }
-  }, [user, router])
+  }, [checkAuth])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,6 +58,7 @@ export default function LoginPage() {
           description: result.error || "Invalid email or password",
           variant: "destructive",
         })
+        setIsLoading(false)
       } else {
         console.log("Login successful, redirecting to home")
         toast({
@@ -64,7 +66,7 @@ export default function LoginPage() {
           description: "Welcome back!",
         })
 
-        // Force navigation to home page
+        // Force a hard navigation to the home page
         window.location.href = "/"
       }
     } catch (error) {
@@ -75,7 +77,6 @@ export default function LoginPage() {
         description: "An unexpected error occurred",
         variant: "destructive",
       })
-    } finally {
       setIsLoading(false)
     }
   }
@@ -128,6 +129,14 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-primary dark:bg-dark">
+        <Loader2 className="h-8 w-8 animate-spin text-tertiary dark:text-primary" />
+      </div>
+    )
   }
 
   return (
