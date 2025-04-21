@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { PomodoroApp } from "@/components/pomodoro-app"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
-import { LogOut } from "lucide-react"
+import { LogOut, Loader2, RefreshCw } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useTheme } from "next-themes"
@@ -56,7 +56,7 @@ export default function Home() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-primary dark:bg-dark">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-tertiary dark:border-primary mb-8"></div>
+          <Loader2 className="h-12 w-12 animate-spin text-tertiary dark:text-primary mx-auto mb-8" />
           <h2 className={cn("text-2xl font-semibold mb-2", isDarkMode ? "text-primary" : "text-tertiary")}>
             Loading...
           </h2>
@@ -67,7 +67,8 @@ export default function Home() {
               <p className={cn("text-sm mb-4", isDarkMode ? "text-primary/70" : "text-dark")}>
                 This is taking longer than expected. You can try:
               </p>
-              <Button onClick={handleRetry} variant="outline">
+              <Button onClick={handleRetry} variant="outline" className="flex items-center gap-2">
+                <RefreshCw className="h-4 w-4" />
                 Retry
               </Button>
             </div>

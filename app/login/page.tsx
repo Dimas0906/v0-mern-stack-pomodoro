@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -11,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, Loader2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
@@ -29,7 +28,7 @@ export default function LoginPage() {
   const [activeTab, setActiveTab] = useState("login")
   const router = useRouter()
   const { toast } = useToast()
-  const { user, login, register } = useAuth()
+  const { user, loading, login, register } = useAuth()
   const { theme } = useTheme()
   const isDarkMode = theme === "dark"
 
@@ -49,6 +48,7 @@ export default function LoginPage() {
 
     try {
       const result = await login(loginEmail, loginPassword)
+      console.log("Login result:", result)
 
       if (!result.success) {
         console.error("Login failed:", result.error)
@@ -58,6 +58,7 @@ export default function LoginPage() {
           description: result.error || "Invalid email or password",
           variant: "destructive",
         })
+        setIsLoading(false)
       } else {
         console.log("Login successful, redirecting to home")
         toast({
@@ -65,10 +66,9 @@ export default function LoginPage() {
           description: "Welcome back!",
         })
         setRedirecting(true)
-        // Add a small delay to show the loading screen
-        setTimeout(() => {
-          router.push("/")
-        }, 1500)
+
+        // Redirect immediately instead of using a timeout
+        router.push("/")
       }
     } catch (error) {
       console.error("Login error:", error)
@@ -78,10 +78,7 @@ export default function LoginPage() {
         description: "An unexpected error occurred",
         variant: "destructive",
       })
-    } finally {
-      if (!redirecting) {
-        setIsLoading(false)
-      }
+      setIsLoading(false)
     }
   }
 
@@ -93,6 +90,7 @@ export default function LoginPage() {
 
     try {
       const result = await register(registerName, registerEmail, registerPassword)
+      console.log("Registration result:", result)
 
       if (!result.success) {
         console.error("Registration failed:", result.error)
@@ -138,7 +136,7 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-primary dark:bg-dark">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-tertiary dark:border-primary mx-auto mb-8"></div>
+          <Loader2 className="h-16 w-16 animate-spin text-tertiary dark:text-primary mx-auto mb-8" />
           <h2 className={cn("text-2xl font-semibold mb-2", isDarkMode ? "text-primary" : "text-tertiary")}>
             Logging in...
           </h2>
@@ -221,7 +219,14 @@ export default function LoginPage() {
                   className="w-full bg-tertiary hover:bg-secondary hover:text-tertiary text-primary"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Logging in..." : "Login"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Logging in...
+                    </>
+                  ) : (
+                    "Login"
+                  )}
                 </Button>
 
                 <div className="text-center text-sm text-muted-foreground mt-2">
@@ -294,7 +299,14 @@ export default function LoginPage() {
                   className="w-full bg-tertiary hover:bg-secondary hover:text-tertiary text-primary"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Creating account..." : "Register"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating account...
+                    </>
+                  ) : (
+                    "Register"
+                  )}
                 </Button>
               </form>
             </TabsContent>

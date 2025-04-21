@@ -9,12 +9,16 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { email, password } = body
 
+    console.log(`Login attempt for email: ${email}`)
+
     if (!email || !password) {
+      console.log("Login failed: Email and password are required")
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
     // Check for demo user
     if (email === "test@example.com" && password === "password") {
+      console.log("Demo user login successful")
       return NextResponse.json({
         user: {
           id: "test-user-id",
@@ -27,13 +31,19 @@ export async function POST(request: Request) {
 
     // Find user by email
     const user = await User.findOne({ email })
+
     if (!user) {
+      console.log(`Login failed: No user found with email ${email}`)
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
     }
 
+    console.log(`User found in database: ${user._id} (${user.name})`)
+
     // Check password
     const isPasswordValid = await user.comparePassword(password)
+
     if (!isPasswordValid) {
+      console.log(`Login failed: Invalid password for user ${email}`)
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
     }
 
@@ -44,7 +54,7 @@ export async function POST(request: Request) {
       email: user.email,
     }
 
-    console.log("Login successful for:", email, "User ID:", userWithoutPassword.id)
+    console.log(`Login successful for: ${email}, User ID: ${userWithoutPassword.id}`)
 
     return NextResponse.json({
       user: userWithoutPassword,
@@ -52,6 +62,12 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error("Login error:", error)
-    return NextResponse.json({ error: "Failed to login", success: false }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Failed to login",
+        success: false,
+      },
+      { status: 500 },
+    )
   }
 }

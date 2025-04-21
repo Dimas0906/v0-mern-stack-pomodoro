@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { AuthAPI } from "@/lib/api"
-import { logAuthEvent, checkLocalStorage, debugAuthState } from "@/lib/debug-utils"
 
 type User = {
   id: string
@@ -16,7 +15,6 @@ type AuthContextType = {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>
   logout: () => void
-  debugAuth: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -28,33 +26,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check for stored user on mount
   useEffect(() => {
     const checkAuth = () => {
-      logAuthEvent("Checking authentication state")
-
-      // Check if localStorage is available
-      if (!checkLocalStorage()) {
-        setLoading(false)
-        return
-      }
-
       try {
+        console.log("Checking for stored user...")
         const storedUser = localStorage.getItem("pomodoro-user")
+
         if (storedUser) {
           const parsedUser = JSON.parse(storedUser)
-
-          // Validate user object
-          if (parsedUser && parsedUser.id && parsedUser.name && parsedUser.email) {
-            logAuthEvent("User found in localStorage", { id: parsedUser.id, email: parsedUser.email })
-            setUser(parsedUser)
-          } else {
-            logAuthEvent("Invalid user object in localStorage", parsedUser)
-            localStorage.removeItem("pomodoro-user")
-          }
+          console.log("Found stored user:", parsedUser.email)
+          setUser(parsedUser)
         } else {
-          logAuthEvent("No user found in localStorage")
+          console.log("No stored user found")
         }
       } catch (error) {
         console.error("Failed to load user from storage:", error)
-        // Clear potentially corrupted data
         localStorage.removeItem("pomodoro-user")
       } finally {
         setLoading(false)
@@ -63,10 +47,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Add a small delay to ensure localStorage is available
     setTimeout(checkAuth, 100)
-  }, []) // Empty dependency array to run only once on mount
+  }, [])
 
   const login = async (email: string, password: string) => {
-    logAuthEvent("Login attempt", { email })
+    console.log(`Login attempt for: ${email}`)
 
     if (!email || !password) {
       return { success: false, error: "Email and password are required" }
@@ -74,11 +58,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       // Try to login with the API
+      console.log("Sending login request to API...")
       const response = await AuthAPI.login({ email, password })
-      logAuthEvent("Login API response", { success: response.success, hasUser: !!response.user })
+      console.log("Login API response:", response)
 
       if (response.success && response.user) {
-        // Make sure we have a valid user object with all required fields
+        // Make sure we have a valid user object
         if (!response.user.id || !response.user.name || !response.user.email) {
           console.error("Invalid user object received:", response.user)
           return { success: false, error: "Invalid user data received from server" }
@@ -91,21 +76,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: response.user.email,
         }
 
+        console.log("Setting user in state and localStorage:", userData)
         setUser(userData)
         localStorage.setItem("pomodoro-user", JSON.stringify(userData))
-        logAuthEvent("User stored in state and localStorage", { id: userData.id })
         return { success: true }
       }
 
       return { success: false, error: "Invalid email or password" }
     } catch (error) {
-      logAuthEvent("Login error", { error: error instanceof Error ? error.message : "Unknown error" })
-      return { success: false, error: error instanceof Error ? error.message : "An unexpected error occurred" }
+      console.error("Login error:", error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "An unexpected error occurred",
+      }
     }
   }
 
   const register = async (name: string, email: string, password: string) => {
-    logAuthEvent("Registration attempt", { name, email })
+    console.log(`Registration attempt for: ${email}`)
 
     if (!name || !email || !password) {
       return { success: false, error: "All fields are required" }
@@ -117,37 +105,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       // Register with the API
-      const user = await AuthAPI.register({ name, email, password })
+      const result = await AuthAPI.register({ name, email, password })
+      console.log("Registration API response:", result)
 
-      // Validate the response
-      if (!user || !user.id) {
-        logAuthEvent("Registration failed - invalid response from server")
+      if (!result || !result.id) {
+        console.error("Invalid registration response:", result)
         return { success: false, error: "Registration failed - invalid response from server" }
       }
 
-      logAuthEvent("Registration successful", { id: user.id })
+      console.log("Registration successful for:", email)
       return { success: true }
     } catch (error) {
-      logAuthEvent("Registration error", { error: error instanceof Error ? error.message : "Unknown error" })
-      return { success: false, error: error instanceof Error ? error.message : "An unexpected error occurred" }
+      console.error("Registration error:", error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "An unexpected error occurred",
+      }
     }
   }
 
   const logout = () => {
-    logAuthEvent("Logout")
+    console.log("Logging out user")
     setUser(null)
     localStorage.removeItem("pomodoro-user")
   }
 
-  const debugAuth = () => {
-    debugAuthState()
-  }
-
-  return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, debugAuth }}>
-      {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={{ user, loading, login, register, logout }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
