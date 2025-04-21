@@ -24,11 +24,10 @@ export default function LoginPage() {
   const [registerPassword, setRegisterPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [redirecting, setRedirecting] = useState(false)
   const [activeTab, setActiveTab] = useState("login")
   const router = useRouter()
   const { toast } = useToast()
-  const { user, loading, login, register } = useAuth()
+  const { user, login, register } = useAuth()
   const { theme } = useTheme()
   const isDarkMode = theme === "dark"
 
@@ -58,17 +57,15 @@ export default function LoginPage() {
           description: result.error || "Invalid email or password",
           variant: "destructive",
         })
-        setIsLoading(false)
       } else {
         console.log("Login successful, redirecting to home")
         toast({
           title: "Login successful",
           description: "Welcome back!",
         })
-        setRedirecting(true)
 
-        // Redirect immediately instead of using a timeout
-        router.push("/")
+        // Force navigation to home page
+        window.location.href = "/"
       }
     } catch (error) {
       console.error("Login error:", error)
@@ -78,6 +75,7 @@ export default function LoginPage() {
         description: "An unexpected error occurred",
         variant: "destructive",
       })
+    } finally {
       setIsLoading(false)
     }
   }
@@ -130,20 +128,6 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  if (redirecting) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-primary dark:bg-dark">
-        <div className="text-center">
-          <Loader2 className="h-16 w-16 animate-spin text-tertiary dark:text-primary mx-auto mb-8" />
-          <h2 className={cn("text-2xl font-semibold mb-2", isDarkMode ? "text-primary" : "text-tertiary")}>
-            Logging in...
-          </h2>
-          <p className={cn(isDarkMode ? "text-primary/70" : "text-dark")}>Preparing your Pomodoro workspace</p>
-        </div>
-      </div>
-    )
   }
 
   return (

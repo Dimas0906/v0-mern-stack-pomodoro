@@ -31,9 +31,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const storedUser = localStorage.getItem("pomodoro-user")
 
         if (storedUser) {
-          const parsedUser = JSON.parse(storedUser)
-          console.log("Found stored user:", parsedUser.email)
-          setUser(parsedUser)
+          try {
+            const parsedUser = JSON.parse(storedUser)
+            console.log("Found stored user:", parsedUser.email)
+
+            // Validate user object
+            if (parsedUser && parsedUser.id && parsedUser.name && parsedUser.email) {
+              setUser(parsedUser)
+            } else {
+              console.error("Invalid user data in localStorage:", parsedUser)
+              localStorage.removeItem("pomodoro-user")
+            }
+          } catch (e) {
+            console.error("Error parsing user data:", e)
+            localStorage.removeItem("pomodoro-user")
+          }
         } else {
           console.log("No stored user found")
         }
@@ -78,7 +90,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         console.log("Setting user in state and localStorage:", userData)
         setUser(userData)
-        localStorage.setItem("pomodoro-user", JSON.stringify(userData))
+
+        // Make sure localStorage is updated synchronously
+        try {
+          localStorage.setItem("pomodoro-user", JSON.stringify(userData))
+          console.log("User data saved to localStorage")
+        } catch (e) {
+          console.error("Error saving to localStorage:", e)
+        }
+
         return { success: true }
       }
 

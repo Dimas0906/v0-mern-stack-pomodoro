@@ -19,6 +19,7 @@ export default function Home() {
   const { theme } = useTheme()
   const isDarkMode = theme === "dark"
   const [loadingTimeout, setLoadingTimeout] = useState(false)
+  const [userChecked, setUserChecked] = useState(false)
 
   // Add a timeout to detect if loading takes too long
   useEffect(() => {
@@ -31,10 +32,17 @@ export default function Home() {
     }
   }, [loading])
 
+  // Check if user is logged in
   useEffect(() => {
-    if (!loading && !user) {
-      console.log("No user found, redirecting to login")
-      router.push("/login")
+    if (!loading) {
+      setUserChecked(true)
+
+      if (!user) {
+        console.log("No user found, redirecting to login")
+        window.location.href = "/login"
+      } else {
+        console.log("User found:", user.email)
+      }
     }
   }, [user, loading, router])
 
@@ -44,7 +52,7 @@ export default function Home() {
       title: "Logged out",
       description: "You have been successfully logged out.",
     })
-    router.push("/login")
+    window.location.href = "/login"
   }
 
   const handleRetry = () => {
@@ -52,7 +60,8 @@ export default function Home() {
     window.location.reload()
   }
 
-  if (loading) {
+  // Show loading state
+  if (loading || !userChecked) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-primary dark:bg-dark">
         <div className="text-center">
@@ -78,10 +87,12 @@ export default function Home() {
     )
   }
 
+  // If no user and we've checked, the redirect should have happened
   if (!user) {
-    return null // Router will handle redirect
+    return null
   }
 
+  // User is authenticated, show the app
   return (
     <main className="min-h-screen bg-primary dark:bg-dark">
       <div className="container mx-auto px-4 py-8">
