@@ -39,10 +39,12 @@ export async function POST(request: Request) {
 
     // Return user without password
     const userWithoutPassword = {
-      id: user._id,
+      id: user._id.toString(), // Ensure ID is a string
       name: user.name,
       email: user.email,
     }
+
+    console.log("Login successful for:", email, "User ID:", userWithoutPassword.id)
 
     return NextResponse.json({
       user: userWithoutPassword,
@@ -50,6 +52,6 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error("Login error:", error)
-    return NextResponse.json({ error: "Failed to login" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to login", success: false }, { status: 500 })
   }
 }

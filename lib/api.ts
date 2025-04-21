@@ -5,20 +5,26 @@ const API_BASE_URL = "/api"
 
 // Generic fetch function with error handling
 async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  })
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    })
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || "An error occurred")
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.error || `API error: ${response.status}`)
+    }
+
+    return data
+  } catch (error) {
+    console.error(`API error for ${endpoint}:`, error)
+    throw error
   }
-
-  return response.json()
 }
 
 // Task API functions

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { PomodoroApp } from "@/components/pomodoro-app"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,18 @@ export default function Home() {
   const { toast } = useToast()
   const { theme } = useTheme()
   const isDarkMode = theme === "dark"
+  const [loadingTimeout, setLoadingTimeout] = useState(false)
+
+  // Add a timeout to detect if loading takes too long
+  useEffect(() => {
+    if (loading) {
+      const timer = setTimeout(() => {
+        setLoadingTimeout(true)
+      }, 5000) // 5 seconds timeout
+
+      return () => clearTimeout(timer)
+    }
+  }, [loading])
 
   useEffect(() => {
     if (!loading && !user) {
@@ -34,10 +46,32 @@ export default function Home() {
     router.push("/login")
   }
 
+  const handleRetry = () => {
+    // Force reload the page to retry authentication
+    window.location.reload()
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-primary dark:bg-dark">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-tertiary dark:border-primary"></div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-primary dark:bg-dark">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-tertiary dark:border-primary mb-8"></div>
+          <h2 className={cn("text-2xl font-semibold mb-2", isDarkMode ? "text-primary" : "text-tertiary")}>
+            Loading...
+          </h2>
+          <p className={cn("mb-4", isDarkMode ? "text-primary/70" : "text-dark")}>Preparing your Pomodoro workspace</p>
+
+          {loadingTimeout && (
+            <div className="mt-8">
+              <p className={cn("text-sm mb-4", isDarkMode ? "text-primary/70" : "text-dark")}>
+                This is taking longer than expected. You can try:
+              </p>
+              <Button onClick={handleRetry} variant="outline">
+                Retry
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     )
   }
