@@ -1,0 +1,82 @@
+"use client"
+
+import { useEffect } from "react"
+import { PomodoroApp } from "@/components/pomodoro-app"
+import { useAuth } from "@/contexts/auth-context"
+import { Button } from "@/components/ui/button"
+import { LogOut } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
+import { useTheme } from "next-themes"
+import { cn } from "@/lib/utils"
+import { DatabaseStatus } from "@/components/db-status"
+
+export default function Home() {
+  const { user, loading, logout } = useAuth()
+  const router = useRouter()
+  const { toast } = useToast()
+  const { theme } = useTheme()
+  const isDarkMode = theme === "dark"
+
+  useEffect(() => {
+    if (!loading && !user) {
+      console.log("No user found, redirecting to login")
+      router.push("/login")
+    }
+  }, [user, loading, router])
+
+  const handleLogout = () => {
+    logout()
+    toast({
+      title: "Logged out",
+      description: "You have been successfully logged out.",
+    })
+    router.push("/login")
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-primary dark:bg-dark">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-tertiary dark:border-primary"></div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return null // Router will handle redirect
+  }
+
+  return (
+    <main className="min-h-screen bg-primary dark:bg-dark">
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <div className="flex items-center gap-4">
+            <h1 className={cn("text-3xl font-bold", isDarkMode ? "text-primary" : "text-tertiary")}>
+              Pomodoro Task Manager
+            </h1>
+            <DatabaseStatus />
+          </div>
+          <div className="flex items-center gap-4">
+            <span className={cn("text-sm", isDarkMode ? "text-primary/70" : "text-tertiary/70")}>
+              Welcome, {user.name}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className={cn(
+                isDarkMode
+                  ? "border-primary text-primary hover:bg-primary hover:text-tertiary"
+                  : "border-tertiary text-tertiary hover:bg-tertiary hover:text-primary",
+              )}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
+        </div>
+        <PomodoroApp />
+      </div>
+    </main>
+  )
+}
