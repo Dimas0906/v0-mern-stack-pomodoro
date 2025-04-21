@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import { DatabaseStatus } from "@/components/db-status"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function Home() {
   const { user, loading, logout } = useAuth()
@@ -91,6 +92,7 @@ export default function Home() {
             <DatabaseStatus />
           </div>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             <span className={cn("text-sm", isDarkMode ? "text-primary/70" : "text-tertiary/70")}>
               Welcome, {user.name}
             </span>

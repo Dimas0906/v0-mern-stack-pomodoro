@@ -61,7 +61,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    checkAuth()
+    // Add a small delay to ensure localStorage is available
+    setTimeout(checkAuth, 100)
   }, []) // Empty dependency array to run only once on mount
 
   const login = async (email: string, password: string) => {

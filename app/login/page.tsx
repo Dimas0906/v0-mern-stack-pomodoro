@@ -15,6 +15,7 @@ import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function LoginPage() {
   const [loginEmail, setLoginEmail] = useState("test@example.com")
@@ -149,6 +150,10 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-primary dark:bg-dark p-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+
       <Card className="w-full max-w-md border-secondary dark:border-tertiary">
         <CardHeader className="text-center bg-secondary dark:bg-tertiary rounded-t-lg">
           <CardTitle className={cn("text-2xl", isDarkMode ? "text-dark" : "text-tertiary")}>
