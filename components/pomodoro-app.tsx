@@ -594,6 +594,11 @@ export function PomodoroApp() {
   }
 
   const completePomodoro = async (duration: number) => {
+    if (!user?.id) {
+      console.log("No user ID available for completing pomodoro")
+      return
+    }
+
     if (currentTask) {
       try {
         console.log(`Creating session for task: ${currentTask.title}, duration: ${duration}`)
@@ -608,7 +613,7 @@ export function PomodoroApp() {
         console.log("Session created successfully:", newSession)
 
         // Update local state with the session from the server
-        setCompletedSessions([...completedSessions, newSession])
+        setCompletedSessions((prevSessions) => [...prevSessions, newSession])
 
         // The server should have incremented the pomodoro count, so we need to fetch the updated task
         let updatedTask
@@ -658,7 +663,7 @@ export function PomodoroApp() {
         console.log("Created local session:", newSession)
 
         // Update local state
-        setCompletedSessions([...completedSessions, newSession])
+        setCompletedSessions((prevSessions) => [...prevSessions, newSession])
 
         // Update task pomodoro count
         const updatedTask = {
@@ -679,6 +684,19 @@ export function PomodoroApp() {
       }
     } else {
       console.warn("No current task selected when completing pomodoro")
+
+      // Create a session even without a task
+      const genericSession = {
+        _id: `local-${Date.now()}`,
+        userId: user?.id,
+        taskId: "no-task",
+        taskTitle: "Untitled Session",
+        duration,
+        completedAt: new Date().toISOString(),
+      }
+
+      setCompletedSessions((prevSessions) => [...prevSessions, genericSession])
+
       toast({
         title: "Session completed",
         description: `You've completed a ${duration} minute focus session, but no task was selected.`,

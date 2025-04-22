@@ -69,15 +69,32 @@ export const TaskAPI = {
 // Session API functions
 export const SessionAPI = {
   // Get all sessions
-  getSessions: () => fetchAPI<any[]>("/sessions"),
+  getSessions: async () => {
+    console.log("Fetching all sessions")
+    try {
+      const sessions = await fetchAPI<any[]>("/sessions")
+      console.log(`Retrieved ${sessions.length} sessions`)
+      return sessions
+    } catch (error) {
+      console.error("Error fetching sessions:", error)
+      throw error
+    }
+  },
 
   // Create a new session
-  createSession: (session: { taskId: string; taskTitle: string; duration: number }) => {
+  createSession: async (session: { taskId: string; taskTitle: string; duration: number }) => {
     console.log("Creating session:", session)
-    return fetchAPI<any>("/sessions", {
-      method: "POST",
-      body: JSON.stringify(session),
-    })
+    try {
+      const result = await fetchAPI<any>("/sessions", {
+        method: "POST",
+        body: JSON.stringify(session),
+      })
+      console.log("Session created successfully:", result)
+      return result
+    } catch (error) {
+      console.error("Error creating session:", error)
+      throw error
+    }
   },
 }
 

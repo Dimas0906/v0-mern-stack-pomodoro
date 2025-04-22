@@ -3,13 +3,13 @@
 import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Clock, Calendar, BarChart3 } from "lucide-react"
+import { Clock, Calendar, BarChart3, RefreshCw } from "lucide-react"
 import type { Task, CompletedSession } from "./pomodoro-app"
 import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
-import { debugSessionData, validateSessionData } from "@/lib/session-debug"
 import { useAuth } from "@/contexts/auth-context"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
+import { SessionAPI } from "@/lib/api"
 
 interface TaskHistoryProps {
   sessions: CompletedSession[]
@@ -22,6 +22,7 @@ export function TaskHistory({ sessions, tasks }: TaskHistoryProps) {
   const isDarkMode = theme === "dark"
   const { user } = useAuth()
   const { toast } = useToast()
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   // Get today's sessions
   const today = new Date()
@@ -43,7 +44,14 @@ export function TaskHistory({ sessions, tasks }: TaskHistoryProps) {
 
   // Get recent sessions (last 10)
   const recentSessions = [...sessions]
-    .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
+    .sort((a, b) => {
+      try {
+        return new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+      } catch (error) {
+        console.error("Error sorting sessions:", error)
+        return 0
+      }
+    })
     .slice(0, 10)
 
   // Calculate stats
@@ -73,25 +81,34 @@ export function TaskHistory({ sessions, tasks }: TaskHistoryProps) {
       }
     })
 
-  const debugSessions = () => {
+  const refreshSessions = async () => {
     if (!user?.id) return
 
-    const debug = debugSessionData(user.id)
-    const validation = validateSessionData(sessions)
+    setIsRefreshing(true)
+    try {
+      const refreshedSessions = await SessionAPI.getSessions()
 
-    console.group("Session Debug")
-    console.log("Current sessions in component:", sessions.length)
-    console.log("Local storage sessions:", debug.count)
-    console.log("Sessions valid:", validation.valid)
-    if (!validation.valid) {
-      console.log("Validation issues:", validation.issues)
+      if (refreshedSessions && refreshedSessions.length > 0) {
+        toast({
+          title: "Sessions refreshed",
+          description: `Found ${refreshedSessions.length} sessions.`,
+        })
+      } else {
+        toast({
+          title: "No sessions found",
+          description: "You haven't completed any Pomodoro sessions yet.",
+        })
+      }
+    } catch (error) {
+      console.error("Error refreshing sessions:", error)
+      toast({
+        title: "Error refreshing sessions",
+        description: "Failed to load your session history.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsRefreshing(false)
     }
-    console.groupEnd()
-
-    toast({
-      title: "Session Debug",
-      description: `Found ${sessions.length} sessions in component, ${debug.count} in storage. ${validation.valid ? "Data is valid." : "Data has issues."}`,
-    })
   }
 
   return (
@@ -126,15 +143,14 @@ export function TaskHistory({ sessions, tasks }: TaskHistoryProps) {
           >
             <BarChart3 className="h-4 w-4" />
           </Button>
-          {/* Add debug button */}
           <Button
             variant="ghost"
             size="sm"
             className="h-8 px-2 text-muted-foreground"
-            onClick={debugSessions}
-            title="Debug Sessions"
+            onClick={refreshSessions}
+            disabled={isRefreshing}
           >
-            <span className="text-xs">🐞</span>
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           </Button>
         </div>
       </div>
@@ -143,10 +159,15 @@ export function TaskHistory({ sessions, tasks }: TaskHistoryProps) {
         <div className="space-y-3">
           {recentSessions.length === 0 ? (
             <Card>
-              <CardContent className="p-4 text-center text-muted-foreground">No completed sessions yet.</CardContent>
+              <CardContent className="p-4 text-center text-muted-foreground">
+                No completed sessions yet.
+                <div className="mt-2 text-xs">Complete a Pomodoro timer to see your session history here.</div>
+              </CardContent>
             </Card>
           ) : (
-            recentSessions.map((session) => <SessionItem key={session._id} session={session} isDarkMode={isDarkMode} />)
+            recentSessions.map((session, index) => (
+              <SessionItem key={session._id || index} session={session} isDarkMode={isDarkMode} />
+            ))
           )}
         </div>
       ) : (

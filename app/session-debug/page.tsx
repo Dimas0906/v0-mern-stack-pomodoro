@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { useAuth } from "@/contexts/auth-context"
 import { SessionAPI } from "@/lib/api"
 import { debugSessionData } from "@/lib/session-debug"
@@ -14,6 +15,8 @@ export default function SessionDebugPage() {
   const [localSessions, setLocalSessions] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [taskTitle, setTaskTitle] = useState("Test Task")
+  const [duration, setDuration] = useState(25)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -54,9 +57,9 @@ export default function SessionDebugPage() {
     try {
       // Create a test session
       const testSession = {
-        taskId: "test-task-id",
-        taskTitle: "Test Session",
-        duration: 25,
+        taskId: "test-task-id-" + Date.now(),
+        taskTitle: taskTitle || "Test Session",
+        duration: Number(duration) || 25,
       }
 
       const result = await SessionAPI.createSession(testSession)
@@ -86,15 +89,42 @@ export default function SessionDebugPage() {
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
             Refresh
           </Button>
-          <Button variant="outline" onClick={createTestSession} disabled={isLoading}>
-            Create Test Session
-          </Button>
         </div>
       </div>
 
       {error && <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mb-6">{error}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Create Test Session</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Task Title</label>
+                <Input
+                  value={taskTitle}
+                  onChange={(e) => setTaskTitle(e.target.value)}
+                  placeholder="Enter task title"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Duration (minutes)</label>
+                <Input
+                  type="number"
+                  value={duration}
+                  onChange={(e) => setDuration(Number(e.target.value))}
+                  placeholder="25"
+                />
+              </div>
+              <Button onClick={createTestSession} className="w-full">
+                Create Test Session
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>API Sessions ({apiSessions.length})</CardTitle>

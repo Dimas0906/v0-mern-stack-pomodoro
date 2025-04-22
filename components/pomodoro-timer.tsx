@@ -369,6 +369,9 @@ export function PomodoroTimer({ currentTask, onComplete }: PomodoroTimerProps) {
               // Work session completed
               const newSessionCount = sessionCount + 1
               setSessionCount(newSessionCount)
+
+              // Call onComplete with the current duration
+              console.log("Timer completed, calling onComplete with duration:", workDuration)
               onComplete(workDuration)
 
               // Determine if next break should be a long break
@@ -382,14 +385,12 @@ export function PomodoroTimer({ currentTask, onComplete }: PomodoroTimerProps) {
               // Auto-start break if enabled
               setIsRunning(autoStartBreaks)
 
-              // Don't call toast here - we'll handle notifications in a separate effect
               return nextDuration * 60
             } else {
               // Break completed
               setIsBreak(false)
               setIsRunning(autoStartPomodoros)
 
-              // Don't call toast here - we'll handle notifications in a separate effect
               return workDuration * 60
             }
           }
@@ -439,9 +440,13 @@ export function PomodoroTimer({ currentTask, onComplete }: PomodoroTimerProps) {
     setIsRunning(false)
 
     if (!isBreak) {
-      // Skip to break
+      // Skip to break - this means we're completing a work session
       const newSessionCount = sessionCount + 1
       setSessionCount(newSessionCount)
+
+      // Call onComplete to record the session
+      console.log("Skipping to break, calling onComplete with duration:", workDuration)
+      onComplete(workDuration)
 
       // Determine if next break should be a long break
       const shouldBeLongBreak = newSessionCount % sessionsBeforeLongBreak === 0

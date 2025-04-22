@@ -18,11 +18,15 @@ export function debugSessionData(userId: string) {
 
       // Group by date
       const sessionsByDate = parsedSessions.reduce((acc: Record<string, any[]>, session: any) => {
-        const date = new Date(session.completedAt).toLocaleDateString()
-        if (!acc[date]) {
-          acc[date] = []
+        try {
+          const date = new Date(session.completedAt).toLocaleDateString()
+          if (!acc[date]) {
+            acc[date] = []
+          }
+          acc[date].push(session)
+        } catch (error) {
+          console.error("Error processing session date:", error, session)
         }
-        acc[date].push(session)
         return acc
       }, {})
 
