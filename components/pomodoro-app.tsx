@@ -525,13 +525,18 @@ export function PomodoroApp() {
 
   const completeTask = async (taskId: string) => {
     const task = tasks.find((t) => t._id === taskId)
-    if (!task) return
+    if (!task) {
+      console.warn(`Task with ID ${taskId} not found for completion`)
+      return
+    }
 
+    console.log(`Completing task: ${task.title} (${taskId})`)
     const updatedTask = { ...task, completed: true }
 
     try {
       // If task has a local ID, we can't update it on the server yet
       if (taskId.includes("local-")) {
+        console.log("Completing local task")
         // Just update local state
         setTasks(tasks.map((t) => (t._id === taskId ? updatedTask : t)))
 
@@ -547,6 +552,7 @@ export function PomodoroApp() {
       }
 
       // Update task on server
+      console.log("Sending task completion to server")
       await TaskAPI.updateTask(taskId, { completed: true })
 
       // Update local state
@@ -590,12 +596,16 @@ export function PomodoroApp() {
   const completePomodoro = async (duration: number) => {
     if (currentTask) {
       try {
+        console.log(`Creating session for task: ${currentTask.title}, duration: ${duration}`)
+
         // Create new session on server
         const newSession = await SessionAPI.createSession({
           taskId: currentTask._id,
           taskTitle: currentTask.title,
           duration,
         })
+
+        console.log("Session created successfully:", newSession)
 
         // Update local state with the session from the server
         setCompletedSessions([...completedSessions, newSession])
@@ -645,6 +655,8 @@ export function PomodoroApp() {
           completedAt: new Date().toISOString(),
         }
 
+        console.log("Created local session:", newSession)
+
         // Update local state
         setCompletedSessions([...completedSessions, newSession])
 
@@ -665,6 +677,12 @@ export function PomodoroApp() {
           description: `You've completed a ${duration} minute focus session. Data will sync when you're back online.`,
         })
       }
+    } else {
+      console.warn("No current task selected when completing pomodoro")
+      toast({
+        title: "Session completed",
+        description: `You've completed a ${duration} minute focus session, but no task was selected.`,
+      })
     }
   }
 
@@ -727,6 +745,15 @@ export function PomodoroApp() {
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? "animate-spin" : ""}`} />
               {isSyncing ? "Syncing..." : "Sync"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open("/session-debug", "_blank")}
+              className="flex items-center gap-1 border-secondary hover:bg-secondary hover:text-tertiary"
+            >
+              <span className="text-xs">🐞</span>
+              <span className="ml-1">Debug</span>
             </Button>
           </div>
         </div>

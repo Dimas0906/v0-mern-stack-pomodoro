@@ -7,6 +7,9 @@ import { Clock, Calendar, BarChart3 } from "lucide-react"
 import type { Task, CompletedSession } from "./pomodoro-app"
 import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
+import { debugSessionData, validateSessionData } from "@/lib/session-debug"
+import { useAuth } from "@/contexts/auth-context"
+import { useToast } from "@/components/ui/use-toast"
 
 interface TaskHistoryProps {
   sessions: CompletedSession[]
@@ -17,15 +20,22 @@ export function TaskHistory({ sessions, tasks }: TaskHistoryProps) {
   const [view, setView] = useState<"recent" | "stats">("recent")
   const { theme } = useTheme()
   const isDarkMode = theme === "dark"
+  const { user } = useAuth()
+  const { toast } = useToast()
 
   // Get today's sessions
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
   const todaySessions = sessions.filter((session) => {
-    const sessionDate = new Date(session.completedAt)
-    sessionDate.setHours(0, 0, 0, 0)
-    return sessionDate.getTime() === today.getTime()
+    try {
+      const sessionDate = new Date(session.completedAt)
+      sessionDate.setHours(0, 0, 0, 0)
+      return sessionDate.getTime() === today.getTime()
+    } catch (error) {
+      console.error("Error parsing session date:", error, session)
+      return false
+    }
   })
 
   // Calculate total focus time today
@@ -63,6 +73,27 @@ export function TaskHistory({ sessions, tasks }: TaskHistoryProps) {
       }
     })
 
+  const debugSessions = () => {
+    if (!user?.id) return
+
+    const debug = debugSessionData(user.id)
+    const validation = validateSessionData(sessions)
+
+    console.group("Session Debug")
+    console.log("Current sessions in component:", sessions.length)
+    console.log("Local storage sessions:", debug.count)
+    console.log("Sessions valid:", validation.valid)
+    if (!validation.valid) {
+      console.log("Validation issues:", validation.issues)
+    }
+    console.groupEnd()
+
+    toast({
+      title: "Session Debug",
+      description: `Found ${sessions.length} sessions in component, ${debug.count} in storage. ${validation.valid ? "Data is valid." : "Data has issues."}`,
+    })
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -94,6 +125,16 @@ export function TaskHistory({ sessions, tasks }: TaskHistoryProps) {
             onClick={() => setView("stats")}
           >
             <BarChart3 className="h-4 w-4" />
+          </Button>
+          {/* Add debug button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-muted-foreground"
+            onClick={debugSessions}
+            title="Debug Sessions"
+          >
+            <span className="text-xs">🐞</span>
           </Button>
         </div>
       </div>
@@ -171,15 +212,23 @@ interface SessionItemProps {
 }
 
 function SessionItem({ session, isDarkMode }: SessionItemProps) {
-  const date = new Date(session.completedAt)
-  const formattedDate = date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  })
-  const formattedTime = date.toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  })
+  let date, formattedDate, formattedTime
+
+  try {
+    date = new Date(session.completedAt)
+    formattedDate = date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    })
+    formattedTime = date.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  } catch (error) {
+    console.error("Error formatting session date:", error, session)
+    formattedDate = "Unknown date"
+    formattedTime = "Unknown time"
+  }
 
   return (
     <Card>
@@ -187,7 +236,7 @@ function SessionItem({ session, isDarkMode }: SessionItemProps) {
         <div className="flex justify-between items-start">
           <div className="space-y-1">
             <h4 className={cn("text-sm font-medium line-clamp-1", isDarkMode ? "text-primary" : "text-tertiary")}>
-              {session.taskTitle}
+              {session.taskTitle || "Unnamed Task"}
             </h4>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Calendar className="h-3 w-3" />

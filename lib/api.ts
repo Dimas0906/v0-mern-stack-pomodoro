@@ -16,6 +16,13 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
       },
     })
 
+    // First check if the response is JSON
+    const contentType = response.headers.get("content-type")
+    if (!contentType || !contentType.includes("application/json")) {
+      console.error(`API Error: Non-JSON response from ${endpoint}`, await response.text())
+      throw new Error(`Non-JSON response from server: ${response.status} ${response.statusText}`)
+    }
+
     const data = await response.json()
 
     if (!response.ok) {
@@ -65,11 +72,13 @@ export const SessionAPI = {
   getSessions: () => fetchAPI<any[]>("/sessions"),
 
   // Create a new session
-  createSession: (session: { taskId: string; taskTitle: string; duration: number }) =>
-    fetchAPI<any>("/sessions", {
+  createSession: (session: { taskId: string; taskTitle: string; duration: number }) => {
+    console.log("Creating session:", session)
+    return fetchAPI<any>("/sessions", {
       method: "POST",
       body: JSON.stringify(session),
-    }),
+    })
+  },
 }
 
 // Settings API functions

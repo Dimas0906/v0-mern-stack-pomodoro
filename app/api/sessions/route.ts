@@ -36,6 +36,7 @@ export async function POST(request: Request) {
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
+      console.log("Unauthorized attempt to create session")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -43,7 +44,10 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { taskId, taskTitle, duration } = body
 
+    console.log(`Creating session for user ${userId}: Task: ${taskTitle}, Duration: ${duration}`)
+
     if (!taskId || !duration) {
+      console.log("Missing required fields: taskId or duration")
       return NextResponse.json({ error: "TaskId and duration are required" }, { status: 400 })
     }
 
@@ -58,8 +62,23 @@ export async function POST(request: Request) {
       completedAt: new Date(),
     })
 
+    console.log(`Session created successfully: ${newSession._id}`)
+
     // Update task pomodoro count
-    await Task.findOneAndUpdate({ _id: taskId, userId }, { $inc: { pomodoros: 1 } })
+    try {
+      const updatedTask = await Task.findOneAndUpdate(
+        { _id: taskId, userId },
+        { $inc: { pomodoros: 1 } },
+        { new: true },
+      )
+
+      console.log(
+        `Updated pomodoro count for task ${taskId}: ${updatedTask ? updatedTask.pomodoros : "Task not found"}`,
+      )
+    } catch (taskError) {
+      console.error(`Error updating pomodoro count for task ${taskId}:`, taskError)
+      // Continue execution even if task update fails
+    }
 
     return NextResponse.json(newSession, { status: 201 })
   } catch (error) {
