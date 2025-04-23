@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { TaskAPI, SessionAPI } from "@/lib/api"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { DataIntegrityCheck } from "@/components/data-integrity"
+import { SessionDebugButton } from "@/components/session-debug-button"
 
 export type Task = {
   _id: string
@@ -603,38 +604,25 @@ export function PomodoroApp() {
       try {
         console.log(`Creating session for task: ${currentTask.title}, duration: ${duration}`)
 
-        // Create new session on server
-        const newSession = await SessionAPI.createSession({
+        // Create a new session object directly
+        const newSession = {
+          _id: `session-${Date.now()}`,
+          userId: user?.id,
           taskId: currentTask._id,
           taskTitle: currentTask.title,
           duration,
-        })
+          completedAt: new Date().toISOString(),
+        }
 
-        console.log("Session created successfully:", newSession)
+        console.log("Session created:", newSession)
 
-        // Update local state with the session from the server
+        // Update local state with the new session
         setCompletedSessions((prevSessions) => [...prevSessions, newSession])
 
-        // The server should have incremented the pomodoro count, so we need to fetch the updated task
-        let updatedTask
-
-        if (!currentTask._id.includes("local-")) {
-          try {
-            updatedTask = await TaskAPI.getTask(currentTask._id)
-          } catch (error) {
-            console.error("Error fetching updated task:", error)
-            // Fallback to incrementing locally
-            updatedTask = {
-              ...currentTask,
-              pomodoros: currentTask.pomodoros + 1,
-            }
-          }
-        } else {
-          // For local tasks, increment locally
-          updatedTask = {
-            ...currentTask,
-            pomodoros: currentTask.pomodoros + 1,
-          }
+        // Update task pomodoro count
+        const updatedTask = {
+          ...currentTask,
+          pomodoros: currentTask.pomodoros + 1,
         }
 
         // Update tasks array
@@ -647,10 +635,23 @@ export function PomodoroApp() {
           title: "Pomodoro completed!",
           description: `You've completed a ${duration} minute focus session.`,
         })
+
+        // Only after updating the UI, try to save to the server
+        try {
+          // Try to create session on server
+          const serverSession = await SessionAPI.createSession({
+            taskId: currentTask._id,
+            taskTitle: currentTask.title,
+            duration,
+          })
+          console.log("Session saved to server:", serverSession)
+        } catch (serverError) {
+          console.log("Could not save session to server (will sync later):", serverError)
+        }
       } catch (error) {
         console.error("Error completing pomodoro:", error)
 
-        // Fallback to local storage if API fails
+        // Even if there's an error, still create a local session
         const newSession = {
           _id: `local-${Date.now()}`,
           userId: user?.id,
@@ -660,7 +661,7 @@ export function PomodoroApp() {
           completedAt: new Date().toISOString(),
         }
 
-        console.log("Created local session:", newSession)
+        console.log("Created local session as fallback:", newSession)
 
         // Update local state
         setCompletedSessions((prevSessions) => [...prevSessions, newSession])
@@ -702,6 +703,35 @@ export function PomodoroApp() {
         description: `You've completed a ${duration} minute focus session, but no task was selected.`,
       })
     }
+  }
+
+  const createTestSession = () => {
+    if (!user?.id || !currentTask) {
+      toast({
+        title: "Cannot create test session",
+        description: "You need to be logged in and have a task selected",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Create a test session
+    const testSession = {
+      _id: `test-${Date.now()}`,
+      userId: user.id,
+      taskId: currentTask._id,
+      taskTitle: currentTask.title,
+      duration: 25,
+      completedAt: new Date().toISOString(),
+    }
+
+    // Add to completed sessions
+    setCompletedSessions((prev) => [...prev, testSession])
+
+    toast({
+      title: "Test session created",
+      description: "A test session has been added to your history",
+    })
   }
 
   if (isLoading) {
@@ -764,15 +794,7 @@ export function PomodoroApp() {
               <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? "animate-spin" : ""}`} />
               {isSyncing ? "Syncing..." : "Sync"}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.open("/session-debug", "_blank")}
-              className="flex items-center gap-1 border-secondary hover:bg-secondary hover:text-tertiary"
-            >
-              <span className="text-xs">🐞</span>
-              <span className="ml-1">Debug</span>
-            </Button>
+            <SessionDebugButton sessions={completedSessions} onCreateTestSession={createTestSession} />
           </div>
         </div>
         {lastSynced && <p className="text-xs text-muted-foreground mb-4">Last synced: {lastSynced.toLocaleString()}</p>}

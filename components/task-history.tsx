@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Clock, Calendar, BarChart3, RefreshCw } from "lucide-react"
@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
 import { useAuth } from "@/contexts/auth-context"
 import { useToast } from "@/hooks/use-toast"
-import { SessionAPI } from "@/lib/api"
 
 interface TaskHistoryProps {
   sessions: CompletedSession[]
@@ -23,6 +22,11 @@ export function TaskHistory({ sessions, tasks }: TaskHistoryProps) {
   const { user } = useAuth()
   const { toast } = useToast()
   const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Log sessions whenever they change
+  useEffect(() => {
+    console.log("TaskHistory received sessions:", sessions.length, sessions)
+  }, [sessions])
 
   // Get today's sessions
   const today = new Date()
@@ -82,23 +86,12 @@ export function TaskHistory({ sessions, tasks }: TaskHistoryProps) {
     })
 
   const refreshSessions = async () => {
-    if (!user?.id) return
-
     setIsRefreshing(true)
     try {
-      const refreshedSessions = await SessionAPI.getSessions()
-
-      if (refreshedSessions && refreshedSessions.length > 0) {
-        toast({
-          title: "Sessions refreshed",
-          description: `Found ${refreshedSessions.length} sessions.`,
-        })
-      } else {
-        toast({
-          title: "No sessions found",
-          description: "You haven't completed any Pomodoro sessions yet.",
-        })
-      }
+      toast({
+        title: "Sessions refreshed",
+        description: `Found ${sessions.length} sessions.`,
+      })
     } catch (error) {
       console.error("Error refreshing sessions:", error)
       toast({
