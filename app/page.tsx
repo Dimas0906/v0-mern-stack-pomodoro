@@ -5,17 +5,14 @@ import { PomodoroApp } from "@/components/pomodoro-app"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { LogOut, Loader2, RefreshCw } from "lucide-react"
-import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
-import { DatabaseStatus } from "@/components/db-status"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { authStorage } from "@/lib/auth-utils"
 
 export default function Home() {
   const { user, loading, logout, checkAuth } = useAuth()
-  const router = useRouter()
   const { toast } = useToast()
   const { theme } = useTheme()
   const isDarkMode = theme === "dark"
@@ -105,7 +102,6 @@ export default function Home() {
             <h1 className={cn("text-3xl font-bold", isDarkMode ? "text-primary" : "text-tertiary")}>
               Pomodoro Task Manager
             </h1>
-            <DatabaseStatus />
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />

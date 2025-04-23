@@ -1,14 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Clock, Calendar, BarChart3, RefreshCw } from "lucide-react"
+import { Clock, Calendar, BarChart3 } from "lucide-react"
 import type { Task, CompletedSession } from "./pomodoro-app"
 import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
-import { useAuth } from "@/contexts/auth-context"
-import { useToast } from "@/hooks/use-toast"
 
 interface TaskHistoryProps {
   sessions: CompletedSession[]
@@ -19,14 +17,6 @@ export function TaskHistory({ sessions, tasks }: TaskHistoryProps) {
   const [view, setView] = useState<"recent" | "stats">("recent")
   const { theme } = useTheme()
   const isDarkMode = theme === "dark"
-  const { user } = useAuth()
-  const { toast } = useToast()
-  const [isRefreshing, setIsRefreshing] = useState(false)
-
-  // Log sessions whenever they change
-  useEffect(() => {
-    console.log("TaskHistory received sessions:", sessions.length, sessions)
-  }, [sessions])
 
   // Get today's sessions
   const today = new Date()
@@ -85,25 +75,6 @@ export function TaskHistory({ sessions, tasks }: TaskHistoryProps) {
       }
     })
 
-  const refreshSessions = async () => {
-    setIsRefreshing(true)
-    try {
-      toast({
-        title: "Sessions refreshed",
-        description: `Found ${sessions.length} sessions.`,
-      })
-    } catch (error) {
-      console.error("Error refreshing sessions:", error)
-      toast({
-        title: "Error refreshing sessions",
-        description: "Failed to load your session history.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsRefreshing(false)
-    }
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -135,15 +106,6 @@ export function TaskHistory({ sessions, tasks }: TaskHistoryProps) {
             onClick={() => setView("stats")}
           >
             <BarChart3 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2 text-muted-foreground"
-            onClick={refreshSessions}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           </Button>
         </div>
       </div>

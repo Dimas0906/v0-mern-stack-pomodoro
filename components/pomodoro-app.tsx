@@ -7,13 +7,8 @@ import { TaskHistory } from "@/components/task-history"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { Button } from "@/components/ui/button"
-import { RefreshCw, Database } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { TaskAPI, SessionAPI } from "@/lib/api"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { DataIntegrityCheck } from "@/components/data-integrity"
-import { SessionDebugButton } from "@/components/session-debug-button"
 
 export type Task = {
   _id: string
@@ -39,7 +34,7 @@ export function PomodoroApp() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [currentTask, setCurrentTask] = useState<Task | null>(null)
   const [completedSessions, setCompletedSessions] = useState<CompletedSession[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [lastSynced, setLastSynced] = useState<Date | null>(null)
   const { toast } = useToast()
@@ -50,6 +45,325 @@ export function PomodoroApp() {
     attempted: false,
   })
   const [showDataIntegrityCheck, setShowDataIntegrityCheck] = useState(false)
+
+  // Add a task
+  const addTask = async (task: Omit<Task, "_id" | "createdAt" | "userId">) => {
+    try {
+      // Create task on server
+      const newTask = await TaskAPI.createTask({
+        title: task.title,
+        description: task.description || "",
+      })
+
+      // Update local state
+      setTasks([...tasks, newTask])
+
+      toast({
+        title: "Task added",
+        description: `"${task.title}" has been added to your tasks.`,
+      })
+    } catch (error) {
+      console.error("Error adding task:", error)
+
+      // Fallback to local storage if API fails
+      const localTask = {
+        _id: `local-${Date.now()}`,
+        userId: user?.id,
+        title: task.title,
+        description: task.description || "",
+        completed: false,
+        pomodoros: 0,
+        createdAt: new Date().toISOString(),
+      }
+
+      setTasks([...tasks, localTask])
+
+      toast({
+        title: "Task added locally",
+        description: `"${task.title}" has been added to your tasks (offline mode).`,
+      })
+    }
+  }
+
+  // Update a task
+  const updateTask = async (updatedTask: Task) => {
+    try {
+      // If task has a local ID, we can't update it on the server yet
+      if (updatedTask._id.includes("local-")) {
+        // Just update local state
+        setTasks(tasks.map((task) => (task._id === updatedTask._id ? updatedTask : task)))
+
+        if (currentTask?._id === updatedTask._id) {
+          setCurrentTask(updatedTask)
+        }
+        return
+      }
+
+      // Update task on server
+      await TaskAPI.updateTask(updatedTask._id, {
+        title: updatedTask.title,
+        description: updatedTask.description,
+        completed: updatedTask.completed,
+        pomodoros: updatedTask.pomodoros,
+      })
+
+      // Update local state
+      setTasks(tasks.map((task) => (task._id === updatedTask._id ? updatedTask : task)))
+
+      if (currentTask?._id === updatedTask._id) {
+        setCurrentTask(updatedTask)
+      }
+    } catch (error) {
+      console.error("Error updating task:", error)
+
+      // Update local state anyway
+      setTasks(tasks.map((task) => (task._id === updatedTask._id ? updatedTask : task)))
+
+      if (currentTask?._id === updatedTask._id) {
+        setCurrentTask(updatedTask)
+      }
+
+      toast({
+        title: "Offline mode",
+        description: "Task updated locally. Changes will sync when you're back online.",
+        variant: "default",
+      })
+    }
+  }
+
+  // Delete a task
+  const deleteTask = async (taskId: string) => {
+    try {
+      // If task has a local ID, we can just remove it from local state
+      if (taskId.includes("local-")) {
+        setTasks(tasks.filter((task) => task._id !== taskId))
+
+        if (currentTask?._id === taskId) {
+          setCurrentTask(null)
+        }
+
+        toast({
+          title: "Task deleted",
+          description: "The task has been removed from your list.",
+        })
+        return
+      }
+
+      // Delete task on server
+      await TaskAPI.deleteTask(taskId)
+
+      // Update local state
+      setTasks(tasks.filter((task) => task._id !== taskId))
+
+      if (currentTask?._id === taskId) {
+        setCurrentTask(null)
+      }
+
+      toast({
+        title: "Task deleted",
+        description: "The task has been removed from your list.",
+      })
+    } catch (error) {
+      console.error("Error deleting task:", error)
+
+      // Update local state anyway
+      setTasks(tasks.filter((task) => task._id !== taskId))
+
+      if (currentTask?._id === taskId) {
+        setCurrentTask(null)
+      }
+
+      toast({
+        title: "Offline mode",
+        description: "Task deleted locally. Changes will sync when you're back online.",
+        variant: "default",
+      })
+    }
+  }
+
+  // Complete a task
+  const completeTask = async (taskId: string) => {
+    const task = tasks.find((t) => t._id === taskId)
+    if (!task) {
+      console.warn(`Task with ID ${taskId} not found for completion`)
+      return
+    }
+
+    console.log(`Completing task: ${task.title} (${taskId})`)
+    const updatedTask = { ...task, completed: true }
+
+    try {
+      // If task has a local ID, we can't update it on the server yet
+      if (taskId.includes("local-")) {
+        console.log("Completing local task")
+        // Just update local state
+        setTasks(tasks.map((t) => (t._id === taskId ? updatedTask : t)))
+
+        if (currentTask?._id === taskId) {
+          setCurrentTask(null)
+        }
+
+        toast({
+          title: "Task completed",
+          description: "Great job! The task has been marked as complete.",
+        })
+        return
+      }
+
+      // Update task on server
+      console.log("Sending task completion to server")
+      await TaskAPI.updateTask(taskId, { completed: true })
+
+      // Update local state
+      setTasks(tasks.map((t) => (t._id === taskId ? updatedTask : t)))
+
+      if (currentTask?._id === taskId) {
+        setCurrentTask(null)
+      }
+
+      toast({
+        title: "Task completed",
+        description: "Great job! The task has been marked as complete.",
+      })
+    } catch (error) {
+      console.error("Error completing task:", error)
+
+      // Update local state anyway
+      setTasks(tasks.map((t) => (t._id === taskId ? updatedTask : t)))
+
+      if (currentTask?._id === taskId) {
+        setCurrentTask(null)
+      }
+
+      toast({
+        title: "Offline mode",
+        description: "Task marked as complete locally. Changes will sync when you're back online.",
+        variant: "default",
+      })
+    }
+  }
+
+  // Select a task for Pomodoro
+  const selectTaskForPomodoro = (task: Task) => {
+    setCurrentTask(task)
+
+    toast({
+      title: "Task selected",
+      description: `"${task.title}" is now your active Pomodoro task.`,
+    })
+  }
+
+  // Complete a Pomodoro session
+  const completePomodoro = async (duration: number) => {
+    if (!user?.id) {
+      console.log("No user ID available for completing pomodoro")
+      return
+    }
+
+    if (currentTask) {
+      try {
+        console.log(`Creating session for task: ${currentTask.title}, duration: ${duration}`)
+
+        // Create a new session object directly
+        const newSession = {
+          _id: `session-${Date.now()}`,
+          userId: user?.id,
+          taskId: currentTask._id,
+          taskTitle: currentTask.title,
+          duration,
+          completedAt: new Date().toISOString(),
+        }
+
+        console.log("Session created:", newSession)
+
+        // Update local state with the new session
+        setCompletedSessions((prevSessions) => [...prevSessions, newSession])
+
+        // Update task pomodoro count
+        const updatedTask = {
+          ...currentTask,
+          pomodoros: currentTask.pomodoros + 1,
+        }
+
+        // Update tasks array
+        setTasks(tasks.map((task) => (task._id === currentTask._id ? updatedTask : task)))
+
+        // Update current task reference
+        setCurrentTask(updatedTask)
+
+        toast({
+          title: "Pomodoro completed!",
+          description: `You've completed a ${duration} minute focus session.`,
+        })
+
+        // Only after updating the UI, try to save to the server
+        try {
+          // Try to create session on server
+          const serverSession = await SessionAPI.createSession({
+            taskId: currentTask._id,
+            taskTitle: currentTask.title,
+            duration,
+          })
+          console.log("Session saved to server:", serverSession)
+        } catch (serverError) {
+          console.log("Could not save session to server (will sync later):", serverError)
+        }
+      } catch (error) {
+        console.error("Error completing pomodoro:", error)
+
+        // Even if there's an error, still create a local session
+        const newSession = {
+          _id: `local-${Date.now()}`,
+          userId: user?.id,
+          taskId: currentTask._id,
+          taskTitle: currentTask.title,
+          duration,
+          completedAt: new Date().toISOString(),
+        }
+
+        console.log("Created local session as fallback:", newSession)
+
+        // Update local state
+        setCompletedSessions((prevSessions) => [...prevSessions, newSession])
+
+        // Update task pomodoro count
+        const updatedTask = {
+          ...currentTask,
+          pomodoros: currentTask.pomodoros + 1,
+        }
+
+        // Update tasks array
+        setTasks(tasks.map((task) => (task._id === currentTask._id ? updatedTask : task)))
+
+        // Update current task reference
+        setCurrentTask(updatedTask)
+
+        toast({
+          title: "Pomodoro completed! (Offline mode)",
+          description: `You've completed a ${duration} minute focus session. Data will sync when you're back online.`,
+        })
+      }
+    } else {
+      console.warn("No current task selected when completing pomodoro")
+
+      // Create a session even without a task
+      const genericSession = {
+        _id: `local-${Date.now()}`,
+        userId: user?.id,
+        taskId: "no-task",
+        taskTitle: "Untitled Session",
+        duration,
+        completedAt: new Date().toISOString(),
+      }
+
+      setCompletedSessions((prevSessions) => [...prevSessions, genericSession])
+
+      toast({
+        title: "Session completed",
+        description: `You've completed a ${duration} minute focus session, but no task was selected.`,
+      })
+    }
+  }
 
   // Load data from API and localStorage on component mount
   useEffect(() => {
@@ -392,319 +706,6 @@ export function PomodoroApp() {
     }
   }, [user, dataLoaded, syncWithServer])
 
-  const addTask = async (task: Omit<Task, "_id" | "createdAt" | "userId">) => {
-    try {
-      // Create task on server
-      const newTask = await TaskAPI.createTask({
-        title: task.title,
-        description: task.description || "",
-      })
-
-      // Update local state
-      setTasks([...tasks, newTask])
-
-      toast({
-        title: "Task added",
-        description: `"${task.title}" has been added to your tasks.`,
-      })
-    } catch (error) {
-      console.error("Error adding task:", error)
-
-      // Fallback to local storage if API fails
-      const localTask = {
-        _id: `local-${Date.now()}`,
-        userId: user?.id,
-        title: task.title,
-        description: task.description || "",
-        completed: false,
-        pomodoros: 0,
-        createdAt: new Date().toISOString(),
-      }
-
-      setTasks([...tasks, localTask])
-
-      toast({
-        title: "Task added locally",
-        description: `"${task.title}" has been added to your tasks (offline mode).`,
-      })
-    }
-  }
-
-  const updateTask = async (updatedTask: Task) => {
-    try {
-      // If task has a local ID, we can't update it on the server yet
-      if (updatedTask._id.includes("local-")) {
-        // Just update local state
-        setTasks(tasks.map((task) => (task._id === updatedTask._id ? updatedTask : task)))
-
-        if (currentTask?._id === updatedTask._id) {
-          setCurrentTask(updatedTask)
-        }
-        return
-      }
-
-      // Update task on server
-      await TaskAPI.updateTask(updatedTask._id, {
-        title: updatedTask.title,
-        description: updatedTask.description,
-        completed: updatedTask.completed,
-        pomodoros: updatedTask.pomodoros,
-      })
-
-      // Update local state
-      setTasks(tasks.map((task) => (task._id === updatedTask._id ? updatedTask : task)))
-
-      if (currentTask?._id === updatedTask._id) {
-        setCurrentTask(updatedTask)
-      }
-    } catch (error) {
-      console.error("Error updating task:", error)
-
-      // Update local state anyway
-      setTasks(tasks.map((task) => (task._id === updatedTask._id ? updatedTask : task)))
-
-      if (currentTask?._id === updatedTask._id) {
-        setCurrentTask(updatedTask)
-      }
-
-      toast({
-        title: "Offline mode",
-        description: "Task updated locally. Changes will sync when you're back online.",
-        variant: "default",
-      })
-    }
-  }
-
-  const deleteTask = async (taskId: string) => {
-    try {
-      // If task has a local ID, we can just remove it from local state
-      if (taskId.includes("local-")) {
-        setTasks(tasks.filter((task) => task._id !== taskId))
-
-        if (currentTask?._id === taskId) {
-          setCurrentTask(null)
-        }
-
-        toast({
-          title: "Task deleted",
-          description: "The task has been removed from your list.",
-        })
-        return
-      }
-
-      // Delete task on server
-      await TaskAPI.deleteTask(taskId)
-
-      // Update local state
-      setTasks(tasks.filter((task) => task._id !== taskId))
-
-      if (currentTask?._id === taskId) {
-        setCurrentTask(null)
-      }
-
-      toast({
-        title: "Task deleted",
-        description: "The task has been removed from your list.",
-      })
-    } catch (error) {
-      console.error("Error deleting task:", error)
-
-      // Update local state anyway
-      setTasks(tasks.filter((task) => task._id !== taskId))
-
-      if (currentTask?._id === taskId) {
-        setCurrentTask(null)
-      }
-
-      toast({
-        title: "Offline mode",
-        description: "Task deleted locally. Changes will sync when you're back online.",
-        variant: "default",
-      })
-    }
-  }
-
-  const completeTask = async (taskId: string) => {
-    const task = tasks.find((t) => t._id === taskId)
-    if (!task) {
-      console.warn(`Task with ID ${taskId} not found for completion`)
-      return
-    }
-
-    console.log(`Completing task: ${task.title} (${taskId})`)
-    const updatedTask = { ...task, completed: true }
-
-    try {
-      // If task has a local ID, we can't update it on the server yet
-      if (taskId.includes("local-")) {
-        console.log("Completing local task")
-        // Just update local state
-        setTasks(tasks.map((t) => (t._id === taskId ? updatedTask : t)))
-
-        if (currentTask?._id === taskId) {
-          setCurrentTask(null)
-        }
-
-        toast({
-          title: "Task completed",
-          description: "Great job! The task has been marked as complete.",
-        })
-        return
-      }
-
-      // Update task on server
-      console.log("Sending task completion to server")
-      await TaskAPI.updateTask(taskId, { completed: true })
-
-      // Update local state
-      setTasks(tasks.map((t) => (t._id === taskId ? updatedTask : t)))
-
-      if (currentTask?._id === taskId) {
-        setCurrentTask(null)
-      }
-
-      toast({
-        title: "Task completed",
-        description: "Great job! The task has been marked as complete.",
-      })
-    } catch (error) {
-      console.error("Error completing task:", error)
-
-      // Update local state anyway
-      setTasks(tasks.map((t) => (t._id === taskId ? updatedTask : t)))
-
-      if (currentTask?._id === taskId) {
-        setCurrentTask(null)
-      }
-
-      toast({
-        title: "Offline mode",
-        description: "Task marked as complete locally. Changes will sync when you're back online.",
-        variant: "default",
-      })
-    }
-  }
-
-  const selectTaskForPomodoro = (task: Task) => {
-    setCurrentTask(task)
-
-    toast({
-      title: "Task selected",
-      description: `"${task.title}" is now your active Pomodoro task.`,
-    })
-  }
-
-  const completePomodoro = async (duration: number) => {
-    if (!user?.id) {
-      console.log("No user ID available for completing pomodoro")
-      return
-    }
-
-    if (currentTask) {
-      try {
-        console.log(`Creating session for task: ${currentTask.title}, duration: ${duration}`)
-
-        // Create a new session object directly
-        const newSession = {
-          _id: `session-${Date.now()}`,
-          userId: user?.id,
-          taskId: currentTask._id,
-          taskTitle: currentTask.title,
-          duration,
-          completedAt: new Date().toISOString(),
-        }
-
-        console.log("Session created:", newSession)
-
-        // Update local state with the new session
-        setCompletedSessions((prevSessions) => [...prevSessions, newSession])
-
-        // Update task pomodoro count
-        const updatedTask = {
-          ...currentTask,
-          pomodoros: currentTask.pomodoros + 1,
-        }
-
-        // Update tasks array
-        setTasks(tasks.map((task) => (task._id === currentTask._id ? updatedTask : task)))
-
-        // Update current task reference
-        setCurrentTask(updatedTask)
-
-        toast({
-          title: "Pomodoro completed!",
-          description: `You've completed a ${duration} minute focus session.`,
-        })
-
-        // Only after updating the UI, try to save to the server
-        try {
-          // Try to create session on server
-          const serverSession = await SessionAPI.createSession({
-            taskId: currentTask._id,
-            taskTitle: currentTask.title,
-            duration,
-          })
-          console.log("Session saved to server:", serverSession)
-        } catch (serverError) {
-          console.log("Could not save session to server (will sync later):", serverError)
-        }
-      } catch (error) {
-        console.error("Error completing pomodoro:", error)
-
-        // Even if there's an error, still create a local session
-        const newSession = {
-          _id: `local-${Date.now()}`,
-          userId: user?.id,
-          taskId: currentTask._id,
-          taskTitle: currentTask.title,
-          duration,
-          completedAt: new Date().toISOString(),
-        }
-
-        console.log("Created local session as fallback:", newSession)
-
-        // Update local state
-        setCompletedSessions((prevSessions) => [...prevSessions, newSession])
-
-        // Update task pomodoro count
-        const updatedTask = {
-          ...currentTask,
-          pomodoros: currentTask.pomodoros + 1,
-        }
-
-        // Update tasks array
-        setTasks(tasks.map((task) => (task._id === currentTask._id ? updatedTask : task)))
-
-        // Update current task reference
-        setCurrentTask(updatedTask)
-
-        toast({
-          title: "Pomodoro completed! (Offline mode)",
-          description: `You've completed a ${duration} minute focus session. Data will sync when you're back online.`,
-        })
-      }
-    } else {
-      console.warn("No current task selected when completing pomodoro")
-
-      // Create a session even without a task
-      const genericSession = {
-        _id: `local-${Date.now()}`,
-        userId: user?.id,
-        taskId: "no-task",
-        taskTitle: "Untitled Session",
-        duration,
-        completedAt: new Date().toISOString(),
-      }
-
-      setCompletedSessions((prevSessions) => [...prevSessions, genericSession])
-
-      toast({
-        title: "Session completed",
-        description: `You've completed a ${duration} minute focus session, but no task was selected.`,
-      })
-    }
-  }
-
   const createTestSession = () => {
     if (!user?.id || !currentTask) {
       toast({
@@ -774,6 +775,8 @@ export function PomodoroApp() {
       <Card className="p-4 border-secondary">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-tertiary">Session History</h2>
+          {/* The following section is removed */}
+          {/*
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -796,16 +799,20 @@ export function PomodoroApp() {
             </Button>
             <SessionDebugButton sessions={completedSessions} onCreateTestSession={createTestSession} />
           </div>
+          */}
         </div>
         {lastSynced && <p className="text-xs text-muted-foreground mb-4">Last synced: {lastSynced.toLocaleString()}</p>}
         <TaskHistory sessions={completedSessions} tasks={tasks} />
       </Card>
 
+      {/* The following section is removed */}
+      {/*
       <Dialog open={showDataIntegrityCheck} onOpenChange={setShowDataIntegrityCheck}>
         <DialogContent className="sm:max-w-md">
           <DataIntegrityCheck onClose={() => setShowDataIntegrityCheck(false)} />
         </DialogContent>
       </Dialog>
+      */}
     </div>
   )
 }

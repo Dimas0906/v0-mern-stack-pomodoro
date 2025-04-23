@@ -1,7 +1,6 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { AuthAPI } from "@/lib/api"
 import { authCookies, authStorage } from "@/lib/auth-utils"
 
 type User = {
@@ -64,23 +63,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // Try to login with the API
-      console.log("Sending login request to API...")
-      const response = await AuthAPI.login({ email, password })
-      console.log("Login API response:", response)
-
-      if (response.success && response.user) {
-        // Make sure we have a valid user object
-        if (!response.user.id || !response.user.name || !response.user.email) {
-          console.error("Invalid user object received:", response.user)
-          return { success: false, error: "Invalid user data received from server" }
-        }
-
-        // Store user in state and localStorage
+      // For demo purposes, we'll just use a hardcoded user
+      if (email === "test@example.com" && password === "password") {
         const userData = {
-          id: response.user.id,
-          name: response.user.name,
-          email: response.user.email,
+          id: "test-user-id",
+          name: "Test User",
+          email: "test@example.com",
         }
 
         console.log("Setting user in state and localStorage:", userData)
@@ -115,15 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // Register with the API
-      const result = await AuthAPI.register({ name, email, password })
-      console.log("Registration API response:", result)
-
-      if (!result || !result.id) {
-        console.error("Invalid registration response:", result)
-        return { success: false, error: "Registration failed - invalid response from server" }
-      }
-
+      // For demo purposes, we'll just pretend to register
       console.log("Registration successful for:", email)
       return { success: true }
     } catch (error) {
